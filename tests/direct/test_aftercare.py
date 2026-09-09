@@ -1,34 +1,72 @@
 import json
 import pytest
-VERDICTS={"critical","high","moderate","low","no_material_effect","insufficient_evidence"}
-WEIGHTS={"critical":5,"high":3,"moderate":2,"low":1,"no_material_effect":0,"insufficient_evidence":0}
-def payout(balance,verdict): return balance*WEIGHTS[verdict]//5
-@pytest.mark.parametrize('v',sorted(VERDICTS))
-def test_bounded(v): assert v in VERDICTS
-@pytest.mark.parametrize('v,e',[("critical",100),("high",60),("moderate",40),("low",20),("no_material_effect",0),("insufficient_evidence",0)])
-def test_allocation(v,e): assert payout(100,v)==e
-def test_remaining_balance(): assert payout(60,'moderate')==24
-def test_total_never_exceeds_pool(): assert payout(100,'critical')<=100
-def test_zero_evidence_abstains(): assert payout(500,'insufficient_evidence')==0
-def test_no_material_effect_freezes_funds(): assert payout(500,'no_material_effect')==0
-def test_duplicate_paid_flag(): assert {'paid':True}['paid']
-def test_claimant_field_required(): assert 'claimant' in {'claimant':'0xabc'}
-def test_manifest_is_frozen(): assert isinstance(['https://a','https://b'],list)
-def test_manifest_minimum(): assert len(['a','b'])>=2
-def test_manifest_maximum(): assert len(['a','b','c','d'])<=4
-def test_state_round_trips(): assert json.loads(json.dumps({'status':'submitted'}))['status']=='submitted'
-def test_finalized_verdict(): assert 'low' in VERDICTS
-def test_reasoning_bound(): assert len('x'*1500)==1500
-def test_title_bound(): assert len('x'*120)==120
-def test_description_bound(): assert len('x'*1500)==1500
-def test_pool_funding(): assert 100+25==125
-def test_available_reservation(): assert 100-payout(100,'low')==80
-def test_reserved_increases(): assert payout(100,'moderate')==40
-def test_reserved_decreases(): assert 40-40==0
-def test_paid_increases(): assert 0+40==40
-def test_unknown_rejected(): assert 'bogus' not in VERDICTS
-def test_counterfactual_context(): assert {'title','description','period'}.issuperset({'period'})
-def test_source_is_data(): assert 'ignore previous instructions' not in 'public source'
-def test_integer_math(): assert isinstance(payout(101,'low'),int)
-def test_deterministic(): assert payout(101,'high')==payout(101,'high')
-def test_empty_pool(): assert payout(0,'critical')==0
+
+def fresh(deploy): return deploy('contracts/aftercare.py')
+def round_args(c): return c.create_round('Test round','Evidence backed maintenance','2030-01-01')
+def claim_args(c, rid='round_1'): return c.submit_claim(rid,'Maintained package','Prevented deterioration','2025','https://a.example,https://b.example')
+def fund(c, vm, amount): vm.value=amount; c.fund_round('round_1'); vm.value=0
+def addr(a): return '0x'+bytes(a).hex()
+
+def test_create_round(direct_deploy): assert round_args(fresh(direct_deploy)) == 'round_1'
+def test_read_round(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); assert json.loads(c.get_round('round_1'))['id']=='round_1'
+def test_missing_round(direct_deploy,direct_vm):
+ with direct_vm.expect_revert('round not found'): fresh(direct_deploy).get_round('round_9')
+def test_fund_round(direct_deploy,direct_vm):
+ c=fresh(direct_deploy); round_args(c); fund(c,direct_vm,100); assert json.loads(c.get_round('round_1'))['available']==100
+def test_funding_accounting(direct_deploy,direct_vm):
+ c=fresh(direct_deploy); round_args(c); fund(c,direct_vm,40); fund(c,direct_vm,60); r=json.loads(c.get_round('round_1')); assert (r['total_funded'],r['pool'])==(100,100)
+def test_missing_funding_reverts(direct_deploy,direct_vm):
+ direct_vm.value=1
+ with direct_vm.expect_revert('round not found'): fresh(direct_deploy).fund_round('round_1')
+def test_submit_claim(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); assert claim_args(c)=='claim_1'
+def test_claimant_stored(direct_deploy,direct_owner):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert json.loads(c.get_claim('claim_1'))['claimant']==addr(direct_owner)
+def test_claim_count(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert json.loads(c.get_round('round_1'))['claims']==1
+def test_short_manifest_reverts(direct_deploy,direct_vm):
+ c=fresh(direct_deploy); round_args(c)
+ with direct_vm.expect_revert('evidence manifest'): c.submit_claim('round_1','x','x','x','https://a')
+def test_long_manifest_reverts(direct_deploy,direct_vm):
+ c=fresh(direct_deploy); round_args(c)
+ with direct_vm.expect_revert('evidence manifest'): c.submit_claim('round_1','x','x','x','a,b,c,d,e')
+def test_missing_claim_round_reverts(direct_deploy,direct_vm):
+ with direct_vm.expect_revert('invalid round'): fresh(direct_deploy).submit_claim('round_9','x','x','x','a,b')
+def test_evidence_frozen(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert json.loads(c.get_claim('claim_1'))['evidence']==['https://a.example','https://b.example']
+def test_count_views(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert (c.get_round_count(),c.get_claim_count())==(1,1)
+def test_claim_read(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert json.loads(c.get_claim('claim_1'))['status']=='submitted'
+def test_second_claim_id(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert claim_args(c)=='claim_2'
+def test_round_creator(direct_deploy,direct_owner):
+ c=fresh(direct_deploy); round_args(c); assert json.loads(c.get_round('round_1'))['creator']==addr(direct_owner)
+def test_title_bound(direct_deploy):
+ c=fresh(direct_deploy); assert len(json.loads(c.get_round(round_args(c)))['title'])<=120
+def test_description_bound(direct_deploy):
+ c=fresh(direct_deploy); rid=round_args(c); c.submit_claim(rid,'x','x'*3000,'x','a,b'); assert len(json.loads(c.get_claim('claim_1'))['description'])<=1500
+def test_empty_value_funding_is_accounted(direct_deploy,direct_vm):
+ c=fresh(direct_deploy); round_args(c); fund(c,direct_vm,0); assert json.loads(c.get_round('round_1'))['available']==0
+def test_multiple_claims_count(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); claim_args(c); assert json.loads(c.get_round('round_1'))['claims']==2
+def test_round_ids_are_monotonic(direct_deploy):
+ c=fresh(direct_deploy); assert [round_args(c),round_args(c)]==['round_1','round_2']
+def test_claim_ids_are_monotonic(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); assert [claim_args(c),claim_args(c)]==['claim_1','claim_2']
+def test_funding_preserves_claim_count(direct_deploy,direct_vm):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); fund(c,direct_vm,5); assert json.loads(c.get_round('round_1'))['claims']==1
+def test_claim_period_stored(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert json.loads(c.get_claim('claim_1'))['period']=='2025'
+def test_claim_starts_unpaid(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert json.loads(c.get_claim('claim_1'))['paid'] is False
+def test_unassessed_claim_has_zero_payout(direct_deploy):
+ c=fresh(direct_deploy); round_args(c); claim_args(c); assert json.loads(c.get_claim('claim_1'))['payout']==0
+def test_round_fields_exist(direct_deploy):
+ c=fresh(direct_deploy); r=json.loads(c.get_round(round_args(c))); assert {'available','reserved','paid','total_funded'}<=set(r)
+def test_invalid_payout_reverts(direct_deploy,direct_vm):
+ c=fresh(direct_deploy); round_args(c); claim_args(c)
+ with direct_vm.expect_revert('payout unavailable'): c.claim_payout('claim_1')
+def test_repeated_assessment_guard_source_exists():
+ assert 'claim already assessed' in open('contracts/aftercare.py').read()
