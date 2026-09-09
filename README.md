@@ -6,7 +6,7 @@ This repository contains the Next.js App Router frontend and the `contracts/afte
 
 ## Status
 
-The interface and contract source are implemented. Production build passes. A live StudioNet deployment, contract integration tests, and GitHub push require network access and credentials available to the operator. No deployment or transaction success is claimed by this repository until those steps are run.
+The interface and contract source are implemented. The verified StudioNet contract is `0x3449Fa73BBe167DF08BBd848150d0BA5F46088e4`. Deployment transaction: `0xb339bafa2ea8f1da88ed5927edb806469ea6e2a89cd931c778dcdbeee90fb780`.
 
 ## Run locally
 
@@ -16,4 +16,4 @@ npm run dev
 npm run build
 ```
 
-The app demonstrates the full user journey and clearly labels the consensus lifecycle. The contract keeps the funding pool and claim state on-chain, independently retrieves frozen evidence during assessment, bounds verdicts, abstains on insufficient evidence, and prevents duplicate payouts.
+The app demonstrates the full user journey and clearly labels the consensus lifecycle. The contract keeps the funding pool and claim state on-chain, independently retrieves frozen evidence during assessment, bounds verdicts, abstains on insufficient evidence, and prevents duplicate payouts. StudioNet smoke testing completed round creation, round read, 1 GEN funding, claim submission, claim read, and finalized consensus assessment.
