@@ -109,7 +109,9 @@ class AftercareContract(gl.Contract):
         claim = self._load(raw)
         if claim.get("status") == "finalized": raise gl.vm.UserError("claim already assessed")
         result = self._assess(claim)
-        claim["status"] = "finalized"; claim["verdict"] = result.get("verdict", "insufficient_evidence"); claim["reasoning"] = str(result.get("reasoning", ""))[:1500]
+        verdict = result.get("verdict", "insufficient_evidence") if isinstance(result, dict) else "insufficient_evidence"
+        if verdict not in VERDICTS: verdict = "insufficient_evidence"
+        claim["status"] = "finalized"; claim["verdict"] = verdict; claim["reasoning"] = str(result.get("reasoning", ""))[:1500]
         weights = {"critical": 5, "high": 3, "moderate": 2, "low": 1, "no_material_effect": 0, "insufficient_evidence": 0}
         round_record = self._load(self.rounds.get(claim["round_id"], "{}"))
         available = int(round_record.get("available", round_record.get("pool", 0)))
