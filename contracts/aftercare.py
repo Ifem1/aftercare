@@ -6,6 +6,13 @@ import typing
 
 VERDICTS = ("critical", "high", "moderate", "low", "no_material_effect", "insufficient_evidence")
 
+@gl.evm.contract_interface
+class _Recipient:
+    class View:
+        pass
+    class Write:
+        pass
+
 class AftercareContract(gl.Contract):
     round_counter: u256
     claim_counter: u256
@@ -86,6 +93,9 @@ class AftercareContract(gl.Contract):
         if claim.get("status") == "finalized": raise gl.vm.UserError("claim already assessed")
         result = self._assess(claim)
         claim["status"] = "finalized"; claim["verdict"] = result.get("verdict", "insufficient_evidence"); claim["reasoning"] = str(result.get("reasoning", ""))[:1500]
+        weights = {"critical": 5, "high": 3, "moderate": 2, "low": 1, "no_material_effect": 0, "insufficient_evidence": 0}
+        round_record = self._load(self.rounds.get(claim["round_id"], "{}"))
+        claim["payout"] = int(round_record.get("pool", 0)) * weights.get(claim["verdict"], 0) // 5
         self.claims[claim_id] = self._json(claim)
         return claim["verdict"]
 
@@ -95,4 +105,5 @@ class AftercareContract(gl.Contract):
         if not raw: raise gl.vm.UserError("claim not found")
         claim = self._load(raw)
         if claim.get("paid") or int(claim.get("payout", 0)) <= 0: raise gl.vm.UserError("payout unavailable")
-        claim["paid"] = True; self.claims[claim_id] = self._json(claim)
+        amount = u256(int(claim["payout"])); claim["paid"] = True; self.claims[claim_id] = self._json(claim)
+        _Recipient(Address(claim["claimant"])).emit_transfer(value=amount)

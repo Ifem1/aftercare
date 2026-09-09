@@ -6,7 +6,7 @@ This repository contains the Next.js App Router frontend and the `contracts/afte
 
 ## Status
 
-The interface and contract source are implemented. The verified StudioNet contract is `0x3449Fa73BBe167DF08BBd848150d0BA5F46088e4`. Deployment transaction: `0xb339bafa2ea8f1da88ed5927edb806469ea6e2a89cd931c778dcdbeee90fb780`.
+The interface and contract source are implemented. The verified StudioNet contract is `0x833668ebd3D48331d3B8118a16F6bC22AB449303`. Its schema exposes round creation/funding, claim submission, evidence assessment, and payout methods.
 
 ## Run locally
 
