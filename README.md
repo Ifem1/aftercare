@@ -6,7 +6,7 @@ This repository contains the Next.js App Router frontend and the `contracts/afte
 
 ## Status
 
-The interface and contract source are implemented. The verified StudioNet contract is `0x833668ebd3D48331d3B8118a16F6bC22AB449303`. Its schema exposes round creation/funding, claim submission, evidence assessment, and payout methods.
+The interface and contract source are implemented. The verified StudioNet contract is `0x5FF044EF2a3f7aca1B69A16B5428FF777C6AD433`. Its schema exposes round creation/funding, claim submission, independent evidence assessment, deterministic payout accounting, and claimant-only GEN payout.
 
 ## Run locally
 
@@ -16,4 +16,4 @@ npm run dev
 npm run build
 ```
 
-The app demonstrates the full user journey and clearly labels the consensus lifecycle. The contract keeps the funding pool and claim state on-chain, independently retrieves frozen evidence during assessment, bounds verdicts, abstains on insufficient evidence, and prevents duplicate payouts. StudioNet smoke testing completed round creation, round read, 1 GEN funding, claim submission, claim read, and finalized consensus assessment.
+The app wires claim submission and transaction receipt lifecycle to GenLayer JS. The contract keeps funding and claim state on-chain, independently retrieves frozen evidence during comparative assessment, bounds verdicts, abstains on insufficient evidence, and prevents duplicate or unauthorized payouts. StudioNet schema verification and a fresh round-creation smoke transaction completed successfully. Set `NEXT_PUBLIC_AFTERCARE_CONTRACT_ADDRESS` to the deployed address before Vercel deployment.
