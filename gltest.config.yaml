@@ -1,8 +1,5 @@
 networks:
-  studionet:
-    endpoint: https://studio.genlayer.com/api
+  default: studionet
+  studionet: {}
 paths:
   contracts: contracts
-  tests: tests
-environment:
-  default: studionet
