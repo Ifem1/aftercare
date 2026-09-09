@@ -4,7 +4,10 @@ if(!address||!key) throw new Error('Set NEXT_PUBLIC_AFTERCARE_CONTRACT_ADDRESS a
 const account=createAccount(key), client=createClient({chain:studionet,account});
 const write=async(fn,args=[],value=0n)=>{const hash=await client.writeContract({address,functionName:fn,args,value,account});const receipt=await client.waitForTransactionReceipt({hash});console.log(fn,hash,receipt.statusName||receipt.status);return {hash,receipt};};
 const read=(fn,args=[])=>client.readContract({address,functionName:fn,args});
-const created=await write('create_round',['Automated StudioNet integration','Evidence-backed maintenance','2030-01-01']); const rid='round_2';
-await write('fund_round',[rid],1000000000000000000n); console.log('round',await read('get_round',[rid]));
-const submitted=await write('submit_claim',[rid,'Maintained a public package','Prevented deterioration','2025','https://raw.githubusercontent.com/Ifem1/aftercare/main/README.md,https://raw.githubusercontent.com/Ifem1/festiv/main/README.md']); const cid='claim_1';
+const before=Number(await read('get_round_count')); const beforeClaims=Number(await read('get_claim_count'));
+const created=await write('create_round',['Automated StudioNet integration','Maintained the AFTERCARE contract and its public evidence workflow','2030-01-01']); const rid=`round_${before+1}`;
+if(Number(await read('get_round_count'))!==before+1) throw new Error('round count did not increment');
+await write('fund_round',[rid],1000000000000000000n); const funded=JSON.parse(await read('get_round',[rid])); if(Number(funded.available)!==1000000000000000000) throw new Error('funding accounting mismatch'); console.log('round',funded);
+const submitted=await write('submit_claim',[rid,'Maintained the AFTERCARE public protocol','Kept the contract and client workflow operational while preventing regression','2026','https://raw.githubusercontent.com/Ifem1/aftercare/main/contracts/aftercare.py,https://api.github.com/repos/Ifem1/aftercare/commits?path=contracts/aftercare.py&per_page=10']); const cid=`claim_${beforeClaims+1}`;
+if(Number(await read('get_claim_count'))!==beforeClaims+1) throw new Error('claim count did not increment');
 const assessed=await write('assess_claim',[cid]); const claim=JSON.parse(await read('get_claim',[cid])); console.log(JSON.stringify({round:rid,claim:cid,assessment:assessed.hash,verdict:claim.verdict,payout:claim.payout})); if(Number(claim.payout)>0) await write('claim_payout',[cid]);
